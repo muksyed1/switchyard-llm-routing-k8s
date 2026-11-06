@@ -1,0 +1,90 @@
+# Metadata
+metadata:
+  namespace: "switchyard"
+
+# Labels
+labels:
+  version: "0.40.14"
+
+# Replica Counts
+replicaCount: 1
+
+# Strategy
+strategy:
+  type: "Recreate"
+
+# Images
+image:
+  repository: ollama/ollama:0.40.14
+  pullPolicy: IfNotPresent
+  tag: "0.40.14"
+
+# Images - Other Stuff
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Service Account
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+# Port Info
+port:
+  name: "http"
+  protocol: "TCP"
+  number: "11434"
+
+# Annotations
+podAnnotations: {}
+podLabels: {}
+
+# Security
+posSecurityContexts: {}
+securityContext: {}
+
+# Services
+service:
+  type: ClusterIP
+  port: 11434
+
+# Ingress
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chart-ollama.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+# HTTP Route, Not here.
+
+# Resource Allocation - CPU/Memory
+resources:
+  limits:
+    cpu: 4
+    memory: 4Gi
+  requests:
+    cpu: 2
+    memory: 2Gi
+
+# Liveliness Probe
+livenessProbe:
+  httpGet:
+    path: /
+    port: 11434
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+# Readiness Probe
+readinessProbe:
+  httpGet:
+    path: /
+    port: 11434
+  initialDelaySeconds: 15
+  periodSeconds: 5

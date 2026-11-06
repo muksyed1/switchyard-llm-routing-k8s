@@ -1,0 +1,9 @@
+# Volume Mounts
+volumeMounts:
+- name: ollama-llama
+  mountPath: /root/.ollama
+
+volumes:
+- name: ollama-llama
+  persistentVolumeClaim:
+    claimName: demo-model-llama

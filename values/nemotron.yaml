@@ -1,0 +1,9 @@
+# Volume Mounts
+volumeMounts:
+- name: ollama-nemotron
+  mountPath: /root/.ollama
+
+volumes:  
+- name: ollama-nemotron
+  persistentVolumeClaim:
+    claimName: demo-model-nemotron
