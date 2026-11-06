@@ -29,6 +29,21 @@ spec:
         volumeMounts:
           - name: "{{ .Release.Name }}-vol"
             mountPath: /root/.ollama
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  {{- if .Values.model }}
+                  (
+                    for i in $(seq 1 60); do ollama list >/dev/null 2>&1 && break; sleep 2; done
+                    if ! ollama list | awk 'NR>1{print $1}' | grep -qx '{{ .Values.model }}'; then
+                      ollama pull '{{ .Values.model }}'
+                    fi
+                  ) > /tmp/model-pull.log 2>&1 &
+                  {{- end }}
         resources:
           requests:
             memory: "{{ .Values.resources.requests.memory }}"

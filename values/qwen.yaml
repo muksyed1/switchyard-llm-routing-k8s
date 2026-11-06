@@ -1,9 +1,1 @@
-# Volume Mounts
-volumeMounts:
-- name: ollama-qwen
-  mountPath: /root/.ollama
-
-volumes:
-- name: ollama-qwen
-  persistentVolumeClaim:
-    claimName: demo-model-qwen
+model: "qwen3:1.7b"
