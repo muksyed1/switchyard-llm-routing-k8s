@@ -1,0 +1,6 @@
+apiVersion: v2
+name: "switchyard-server"
+description: A Helm chart for Switchyard Server
+type: application
+version: "0.1.0"
+appVersion: "0.4.0-rc.1-ef958a9a8"

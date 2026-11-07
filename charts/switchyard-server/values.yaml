@@ -1,0 +1,98 @@
+
+# Labels
+labels:
+  version: "0.4.0-rc.1-ef958a9a8"
+
+# Replica Counts
+replicaCount: 1
+
+# Strategy
+strategy:
+  type: "RollingUpdate"
+
+# Images
+image:
+  repository: switchyard-server
+  pullPolicy: IfNotPresent
+  tag: "0.4.0-rc.1-ef958a9a8"
+
+# Images - Other Stuff
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Service Account
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+# Port Info
+port:
+  name: "http"
+  protocol: "TCP"
+  number: "4000"
+
+# Annotations
+podAnnotations: {}
+podLabels: {}
+
+# Security
+posSecurityContexts: {}
+securityContext: {}
+
+# Services
+service:
+  type: ClusterIP
+  port: 4000
+
+# Ingress
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chart-switchyard-server.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+# HTTP Route, Not here.
+
+# Resource Allocation - CPU/Memory
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Liveliness Probe
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 4000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+# Readiness Probe
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 4000
+  initialDelaySeconds: 15
+  periodSeconds: 5
+
+# Application Related
+# model targets:
+capable_target: "demo-model-nemotron"
+efficient_target: "demo-model-llama"
+
+# models
+model:
+  llama: "llama3.2:1b"
+  nemotron: "gemma3:1b"
+  qwen: "qwen3:1.7b"

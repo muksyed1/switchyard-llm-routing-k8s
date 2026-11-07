@@ -53,3 +53,34 @@ Running list, one section per step. If I can't explain an item out loud in a min
 - Helm stores release state as a Secret in the `-n` namespace. Hardcoding `namespace:` in templates while forgetting `-n` split the release record (`default`) from the objects (`switchyard`). Use `.Release.Namespace` and always pass `-n`.
 - `helm lint`, `helm template`, and `helm template ... | kubectl apply --dry-run=server -f -` as the check ladder. The editor's red squiggles on `{{ }}` in templates are a plain-YAML false alarm.
 - Vendoring and pinning third-party charts (`helm pull --untar`), and when to choose Helm, Kustomize or raw YAML.
+- Automated model pull with a `lifecycle.postStart` hook: it runs in the background (`( ... ) &`) so the container isn't blocked, waits for `ollama list` to work, and pulls only if the model isn't listed (idempotent, like the Ansible role). Weak points: a hook failure is easy to miss (check `/tmp/model-pull.log`), the pod is `Ready` before the model exists, and a hook has no retry. Alternatives: init container, Job calling the API.
+- Why the model survives a pod restart (the PVC at `/root/.ollama`) but a `helm uninstall` followed by deleting the PVC loses it.
+- `{{- if .Values.model }}` makes the hook optional: an empty `model` renders nothing.
+
+## Step 4: Switchyard router (image, config, Service)
+
+- The AWS design copied a hand-built binary into Ansible (`files/switchyard-server`). It had no recorded source version, and it is x86-64 Linux, so it fails with `exec format error` on an arm64 Mac and in arm64 kind nodes. Lesson: build artifacts from pinned source, for the target architecture.
+- Upstream publishes no image that I found; it ships a Dockerfile (multi-stage: `rust` builder, then `debian:bookworm-slim` with only the binary, user 1000, port 4000, `ENTRYPOINT ["switchyard-server"]`, no `CMD`). Why multi-stage keeps the final image small.
+- Image tag = upstream version + commit SHA (`0.4.0-rc.1-ef958a9a8`). Why not `latest` (moving target, and `imagePullPolicy: Always` by default, which fails for a local-only image) or my own `0.1.0` (implies my own release). Tags are mutable; digests are not.
+- `kind load docker-image` copies the image into every node's containerd; the cluster can't pull from my local Docker. Use `imagePullPolicy: IfNotPresent` (or `Never`). Check with `docker exec <node> crictl images`.
+- Container `ENTRYPOINT` vs pod `args`: the pod's `args` become the arguments to the entrypoint (`--config`, `--host 0.0.0.0`, `--port 4000`). `command` would replace the entrypoint.
+- Release candidate (`rc.1`) in a lab vs production: what I'd want before running it for real.
+- ConfigMap mounted as a file vs injected as env vars: a config *file* needs a `configMap` volume + `volumeMount` (names must match) and `args` pointing at `mountPath` + `items[].path`. Env vars are for key/value settings.
+- `helm lint` and `helm template` do not check that the API kinds exist (`apps/v2` passed them). `kubectl apply --dry-run=server` does. Check ladder: lint, template, server dry-run, then run the real binary's `--dry-run` on the rendered config (`docker run -i ... --config /dev/stdin --dry-run`).
+- Hyphens are subtraction in Helm: `.Values.model-llama` is `.Values.model` minus `llama`. Use nested maps (`.Values.model.llama`) or `index .Values "model-llama"`.
+- Changing a shared values file (the `model` string became a map) broke the Ollama chart's hook (`ollama pull 'map[llama:...]'`). Check what else reads a key before changing its shape. Known gap: the model tags exist in `values/*.yaml` (Ollama) and in the gateway chart's `values.yaml` (drift risk).
+- Probe failure: `HTTP probe failed with statuscode: 404` means the app is up but the path is wrong. Found the real path by `curl`ing candidates via port-forward and reading the app's startup log (`GET /health` = 200). A probe passes on 200 to 399.
+- `/metrics` on the gateway is a Prometheus endpoint: the scrape target for Step 6.
+
+## Troubleshooting ladder (use this before asking anyone)
+
+1. **Read the exact words.** `kubectl describe pod <pod>`, then the `Events` at the bottom. The message usually names the problem (`statuscode: 404`, `ErrImagePull`, `Insufficient memory`, `unknown field`).
+2. **Find the stage the pod is stuck at.** Each stage has its own first command:
+   - `Pending`: describe events (scheduler: resources, PVC, node affinity).
+   - `ImagePullBackOff` or `ErrImageNeverPull`: image name and tag wrong, or not loaded into kind (`crictl images`).
+   - `CrashLoopBackOff` or restarts rising: `kubectl logs <pod> --previous`, then the container's exit code in describe.
+   - `Running` but `0/1 Ready`: probes (describe events) and ports.
+   - Ready but no traffic: `kubectl get endpointslices`, then Service selector vs `--show-labels`, then ports.
+3. **Get evidence instead of guessing.** Logs, `curl` through a port-forward, `kubectl exec ... cat /etc/...`, and the app's own `--help` and startup output.
+4. **Change one thing, then re-check the same command.** Don't edit three files and rerun.
+5. **Render before apply.** Lint, template, server dry-run. Errors found here cost seconds, not pod restarts.
