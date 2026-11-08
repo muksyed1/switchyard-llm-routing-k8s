@@ -1,0 +1,23 @@
+alertmanager:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+nodeExporter:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    retention: 2d
+
+grafana:
+  admin: 
+    existingSecret: "grafana-admin-credentials"
+    userKey: "admin-user"
+    passwordKey: "admin-password"

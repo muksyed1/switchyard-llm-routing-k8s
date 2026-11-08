@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
+  labels:
+    name: {{ .Release.Name }}
 spec:
   type: ClusterIP
   selector:
@@ -11,3 +13,4 @@ spec:
   - protocol: {{ .Values.port.protocol}}
     port: {{ .Values.port.number }}
     targetPort: {{ .Values.port.number }}
+    name: {{ .Values.port.name }}
