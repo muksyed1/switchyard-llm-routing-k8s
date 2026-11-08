@@ -77,6 +77,8 @@ livenessProbe:
     port: 4000
   initialDelaySeconds: 30
   periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 5
 
 # Readiness Probe
 readinessProbe:
@@ -85,6 +87,7 @@ readinessProbe:
     port: 4000
   initialDelaySeconds: 15
   periodSeconds: 5
+  timeoutSeconds: 5
 
 # Application Related
 # model targets:
