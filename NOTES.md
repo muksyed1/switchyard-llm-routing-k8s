@@ -72,6 +72,28 @@ Running list, one section per step. If I can't explain an item out loud in a min
 - Probe failure: `HTTP probe failed with statuscode: 404` means the app is up but the path is wrong. Found the real path by `curl`ing candidates via port-forward and reading the app's startup log (`GET /health` = 200). A probe passes on 200 to 399.
 - `/metrics` on the gateway is a Prometheus endpoint: the scrape target for Step 6.
 
+## Step 5: load generator and stability
+
+- `kubectl port-forward` binds to one pod and does not reconnect: when the gateway restarted, the loadgen got `http=000`. Port-forward is for the lab; real traffic goes through a Service or Ingress.
+- Pod restarts under load had two causes: node-level OOM (the kind nodes share one Docker VM, and the scheduler can't see that RAM is shared) and probes with the default `timeoutSeconds: 1` on a starved CPU. Fixes: more Docker memory/CPU, explicit `timeoutSeconds` and `failureThreshold`. Requests vs limits: requests decide scheduling, limits decide OOMKill (exit 137).
+- Liveness restarts a container; readiness only removes it from Service endpoints. A liveness probe that is too strict turns a slow pod into a restart loop.
+- `/v1/stats` showed `stage_router ... fall_open`: the auto route always chose the efficient model (llama), in K8s and in AWS. The classifier doesn't seem to be used (inferred, not verified in the docs). Routing overhead: avg 0.83 ms, p99 4.24 ms, so the gateway is not the latency.
+- CPU-only inference: per-request latency is about 2 s (llama3.2:1b), 48 s (qwen3:1.7b, a thinking model) and 66 s (gemma3:1b). Model size and type decide latency, not the router.
+
+## Step 6: Prometheus, Grafana, dashboard as code
+
+- kube-prometheus-stack = Operator + Prometheus + Grafana + kube-state-metrics + CRDs. Installed with `-f values/monitoring.yaml` and a pinned `--version`. Unknown values keys are silently ignored (`retention` belongs under `prometheus.prometheusSpec`).
+- **Labels vs selectors:** labels are tags ON objects (under `metadata`), selectors are filters that LOOK for tags (under `spec`). Deployment `spec.selector.matchLabels` must match `template.metadata.labels` (and is immutable). Service `spec.selector` is a plain map and matches pod labels. ServiceMonitor `spec.selector.matchLabels` matches the Service's own `metadata.labels`. `metadata.name` is identity, not matched by selectors.
+- **ServiceMonitor** is a note to the Operator, not a scraper. Flow: Operator turns it into Prometheus config, Prometheus asks the API server for the Service's endpoints (pod IPs) and scrapes each pod directly on a timer, not through the ClusterIP. The endpoint `port` matches the Service port *name*, not the number. No match = no error, just no target.
+- `serviceMonitorSelectorNilUsesHelmValues: false` makes Prometheus pick up ServiceMonitors from outside the chart's own release.
+- Ownership vs selection: Deployment owns ReplicaSet owns Pod (`ownerReferences`, why pod names look like `<deploy>-<hash>-<suffix>`). Labels/selectors connect things that *use* each other; ownership records who *created* what. Nothing in this project refers to the Deployment by name.
+- Metric kinds: counters (`_total`, use `rate()`), histograms (`_bucket/_sum/_count`; average = `rate(sum)/rate(count)`), gauges. `sum by (label)` is why a metric's labels decide which panels you can build. Labelled series don't exist until the first request after a restart; counters reset on restart and `rate()` handles that.
+- Three kinds of metrics in this cluster: the app's own `/metrics`, kubelet/cAdvisor (container CPU/memory), kube-state-metrics (object state).
+- Dashboard as code: Grafana's sidecar loads any ConfigMap labelled `grafana_dashboard: "1"` (`searchNamespace: ALL`). Chart `charts/switchyard-dashboard` reads the exported **Classic** JSON with `.Files.Get` (files must be inside the chart folder; `.Files.Get` returns plain text, so `{{model}}` legends don't clash with Helm). Exported with "for sharing externally"; the data source uid `prometheus` matches the stack's. A same-uid dashboard saved in the UI conflicts, so delete it first. ConfigMap dashboards are read-only in the UI: edit the file, bump the chart version, upgrade.
+- YAML trap: label values must be strings (`"1"`, not `1`). `helm lint` and `helm template` passed; only `kubectl apply --dry-run=server` caught the misplaced `labels`/`namespace` fields. Always run the full ladder.
+- Empty dashboard after install was just the time range (`now-1h` with load from 2 hours ago). Check the data (a PromQL query), the data source uid and the time range before suspecting the chart.
+- Habit that saved me: `git diff` before committing caught an edit to the wrong file (the gateway's ConfigMap name). Check the path in the editor tab before saving.
+
 ## Troubleshooting ladder (use this before asking anyone)
 
 1. **Read the exact words.** `kubectl describe pod <pod>`, then the `Events` at the bottom. The message usually names the problem (`statuscode: 404`, `ErrImagePull`, `Insufficient memory`, `unknown field`).
