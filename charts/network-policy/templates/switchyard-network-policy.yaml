@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: "allow-prometheus-policy"
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: switchyard-server
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+        namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: monitoring
+    ports:
+      - protocol: TCP
+        port: 4000
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: "allow-ollama-policy"
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/version: 0.40.14
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: switchyard-server
+    ports:
+      - protocol: TCP
+        port: 11434
+
+
