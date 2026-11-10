@@ -18,6 +18,8 @@ spec:
       labels:
         app.kubernetes.io/name: {{ .Release.Name }}
         app.kubernetes.io/version: "{{ .Values.labels.version }}"
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configMap.yaml") . | sha256sum }}
     spec:
       containers:
       - name: {{ .Release.Name }}
