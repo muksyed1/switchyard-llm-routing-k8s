@@ -91,3 +91,9 @@ readinessProbe:
   initialDelaySeconds: 15
   periodSeconds: 5
   timeoutSeconds: 5
+
+# Nvidia GPU variables:
+gpu:
+  enabled: false
+  count: 1
+  runtimeClassName: "nvidia"

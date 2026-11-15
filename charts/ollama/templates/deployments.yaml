@@ -19,6 +19,9 @@ spec:
         app.kubernetes.io/name: {{ .Release.Name }}
         app.kubernetes.io/version: "{{ .Values.labels.version }}"
     spec:
+      {{- if .Values.gpu.enabled }}
+      runtimeClassName: {{ .Values.gpu.runtimeClassName }}
+      {{- end }}
       containers:
       - name: {{ .Release.Name }}
         image: "{{ .Values.image.repository}}"
@@ -51,6 +54,9 @@ spec:
           limits:
             memory: "{{ .Values.resources.limits.memory }}"
             cpu: "{{ .Values.resources.limits.cpu }}"
+            {{- if .Values.gpu.enabled }}
+            "nvidia.com/gpu": {{ .Values.gpu.count }}
+            {{- end }}
         livenessProbe:
           httpGet:
             path: {{ .Values.livenessProbe.httpGet.path }}
