@@ -97,5 +97,9 @@ efficient_target: "demo-model-llama"
 # models
 model:
   llama: "llama3.2:1b"
-  nemotron: "gemma3:1b"
+  nemotron: "nemotron-mini"
   qwen: "qwen3:1.7b"
+
+# ServiceMonitor
+serviceMonitor:
+  enabled: true
